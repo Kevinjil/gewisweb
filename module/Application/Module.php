@@ -11,6 +11,7 @@ namespace Application;
 
 use Monolog\Handler\RotatingFileHandler;
 use Monolog\Logger;
+use User\Permissions\NotAllowedException;
 use Zend\Mvc\ModuleRouteListener;
 use Zend\Mvc\MvcEvent;
 use Zend\Session\Container as SessionContainer;
@@ -39,12 +40,23 @@ class Module
         $sm = $e->getApplication()->getServiceManager();
         $logger = $sm->get('logger');
 
-        if ($e->getError() === 'error-exception') {
-            $ex = $e->getParam('exception');
-            $logger->error($ex);
-            return;
+        switch ($e->getError()) {
+            case 'error-exception':
+                $ex = $e->getParam('exception');
+
+                if ($ex instanceof NotAllowedException) {
+                    return;
+                }
+
+                $logger->error($ex);
+                return;
+            case 'error-router-no-match':
+                // Do not log
+                return;
+            default:
+                // Log error message for all other errors
+                $logger->error($e->getError());
         }
-        $logger->error($e->getError());
     }
 
     protected function determineLocale(MvcEvent $e)
